@@ -7,11 +7,13 @@ import type { Intent } from "./types.js";
  * Order matters: wanted beats parts beats service beats sale, because a
  * "Куплю на запчасти" ad is first and foremost a wanted-ad.
  *
- * Romanian verb stems use word boundaries to distinguish from noun inflections
- * (e.g., \bcump[ăa]r\b avoids matching "cumpărare"). Russian uses suffix-
- * inflection so stems remain unanchored to match inflected forms.
+ * Romanian verb stems use negative lookahead to exclude noun forms with diacritics.
+ * JavaScript's \b is ASCII-only, so diacritics (ă, â, î, ș, ț) create false
+ * boundaries. Using \p{L} requires /u flag (Unicode mode). This prevents
+ * "cumpărare"/"cumpărători" (nouns) from matching while keeping "cumpăr" (verb).
+ * Russian uses suffix-inflection so stems remain unanchored to match inflected forms.
  */
-const WANTED = /(\bcump[ăa]r\b|caut\s+s[ăa]\s+cump[ăa]r|куплю|скупк|покупаю|выкуп)/i;
+const WANTED = /(\bcump[ăa]r(?!\p{L})|caut\s+s[ăa]\s+cump[ăa]r|куплю|скупк|покупаю|выкуп)/ui;
 
 const PARTS = /(pentru\s+piese|pe\s+piese|\bpiese\b|dezmembr|ecran\s+spart|display\s+spart|запчаст|на\s+запчас|плат[аы]\s+для|матриц|нерабоч|не\s+работает)/i;
 

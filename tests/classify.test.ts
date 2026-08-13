@@ -46,7 +46,25 @@ describe("classifyIntent", () => {
 
   it("detects Russian parts without overly broad stems", () => {
     // Verify that "запчасти" patterns still work for parts
-    expect(classifyIntent("Телевизор на запчасти")).toBe("parts");
+    expect(classifyIntent("Televizor на запчасти")).toBe("parts");
     expect(classifyIntent("Продаю на запчасти телевизора")).toBe("parts");
+  });
+
+  it("rejects Romanian noun forms that look like verb stems due to diacritics", () => {
+    // JavaScript's \b is ASCII-only. Diacritics break word boundaries.
+    // These are nouns and should NOT classify as wanted:
+    expect(classifyIntent("cumpărare television")).toBe("unknown");
+    expect(classifyIntent("cumpărări multiple")).toBe("unknown");
+    expect(classifyIntent("cumpărături de ziua")).toBe("unknown");
+    expect(classifyIntent("doar pentru cumpărători serioși")).toBe("unknown");
+    expect(classifyIntent("cumpărători au prioritate")).toBe("unknown");
+    // But a Romanian sale ad WITH these noun forms still classifies as sale
+    // because of the explicit "vând" verb:
+    expect(classifyIntent("Vând TV. Doar pentru cumpărători serioși")).toBe("sale");
+  });
+
+  it("keeps matching the bare verb cumpăr as wanted", () => {
+    // The bare verb "cumpăr" (I buy) must still trigger wanted classification
+    expect(classifyIntent("cumpăr televizoare nefuncționale")).toBe("wanted");
   });
 });
