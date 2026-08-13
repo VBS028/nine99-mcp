@@ -36,4 +36,45 @@ describe("rates", () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/fallback/i);
   });
+
+  it("caches failure so a second call issues no request", async () => {
+    const gql = vi.fn().mockRejectedValue(new Error("boom"));
+    const provider = createRates({ gql });
+    await provider.get();
+    await provider.get();
+    expect(gql).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles empty payload with warnings for missing currencies", async () => {
+    const emptyPayload = { getMainCurrenciesRates: { mainCurrenciesRates: [] } };
+    const t: Transport = { gql: vi.fn().mockResolvedValue(emptyPayload) };
+    const { rates, warnings } = await createRates(t).get();
+    expect(rates.MDL).toBe(1);
+    expect(rates.EUR).toBe(FALLBACK_RATES.EUR);
+    expect(rates.USD).toBe(FALLBACK_RATES.USD);
+    expect(warnings).toHaveLength(2);
+    expect(warnings.join(" ")).toMatch(/EUR.*USD|USD.*EUR/);
+  });
+
+  it("handles malformed value (string instead of number) with warnings", async () => {
+    const malformedPayload = {
+      getMainCurrenciesRates: {
+        mainCurrenciesRates: [
+          { key: "RATES_MAIN_CURRENCY_EUR", ratios: [{ key: "RATES_MAIN_CURRENCY_MDL", value: "19.9997" as any }] },
+        ],
+      },
+    };
+    const t: Transport = { gql: vi.fn().mockResolvedValue(malformedPayload) };
+    const { rates, warnings } = await createRates(t).get();
+    expect(rates.EUR).toBe(FALLBACK_RATES.EUR);
+    expect(rates.USD).toBe(FALLBACK_RATES.USD);
+    expect(warnings.length).toBeGreaterThan(0);
+  });
+
+  it("handles concurrent get() calls with single request", async () => {
+    const gql = vi.fn().mockResolvedValue(livePayload);
+    const provider = createRates({ gql });
+    await Promise.all([provider.get(), provider.get()]);
+    expect(gql).toHaveBeenCalledTimes(1);
+  });
 });
