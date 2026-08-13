@@ -37,4 +37,16 @@ describe("classifyIntent", () => {
   it("reads the description as well as the title", () => {
     expect(classifyIntent("Televizor", "Vând pe piese, ecranul este spart")).toBe("parts");
   });
+
+  it("anchors Romanian cumpăr to avoid matching cumpărare (noun form)", () => {
+    // "Se poate testa înainte de cumpărare" is sale-ad boilerplate, not a wanted signal.
+    // The verb "vând" is required to classify as sale.
+    expect(classifyIntent("Televizor LG OLED", "Vând în stare bună. Se poate testa înainte de cumpărare")).toBe("sale");
+  });
+
+  it("detects Russian parts without overly broad stems", () => {
+    // Verify that "запчасти" patterns still work for parts
+    expect(classifyIntent("Телевизор на запчасти")).toBe("parts");
+    expect(classifyIntent("Продаю на запчасти телевизора")).toBe("parts");
+  });
 });

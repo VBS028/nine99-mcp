@@ -6,10 +6,14 @@ import type { Intent } from "./types.js";
  *
  * Order matters: wanted beats parts beats service beats sale, because a
  * "Куплю на запчасти" ad is first and foremost a wanted-ad.
+ *
+ * Romanian verb stems use word boundaries to distinguish from noun inflections
+ * (e.g., \bcump[ăa]r\b avoids matching "cumpărare"). Russian uses suffix-
+ * inflection so stems remain unanchored to match inflected forms.
  */
-const WANTED = /(cump[ăa]r|caut\s+s[ăa]\s+cump[ăa]r|куплю|скупк|покупаю|выкуп)/i;
+const WANTED = /(\bcump[ăa]r\b|caut\s+s[ăa]\s+cump[ăa]r|куплю|скупк|покупаю|выкуп)/i;
 
-const PARTS = /(pentru\s+piese|pe\s+piese|\bpiese\b|dezmembr|ecran\s+spart|display\s+spart|запчаст|на\s+запчас|разбор|плат[аы]\s+для|матриц|подсветк|нерабоч|не\s+работает)/i;
+const PARTS = /(pentru\s+piese|pe\s+piese|\bpiese\b|dezmembr|ecran\s+spart|display\s+spart|запчаст|на\s+запчас|плат[аы]\s+для|матриц|нерабоч|не\s+работает)/i;
 
 const SERVICE = /(repara[țt]|deservire|instalare|montaj|configurare|deblocare|ремонт|установк|монтаж|настройк|разблокировк|прошивк|iptv|abonament|подписк|servicii|услуг|la\s+domiciliu|на\s+дому|выезд)/i;
 
