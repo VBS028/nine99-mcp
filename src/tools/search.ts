@@ -114,13 +114,30 @@ export function createSearch(deps: { transport: Transport; rates: RatesProvider 
     const warnings = [...rateWarnings];
 
     const seen = new Map<string, RawAd>();
+    const newAds: RawAd[] = [];
     let serverTotal = 0;
-    let page = 0;
+
+    // Track per-term pagination state
+    interface TermState {
+      page: number;
+      exhausted: boolean;
+    }
+    const termStates = new Map<string, TermState>(terms.map((t) => [t, { page: 0, exhausted: false }]));
+    const warnedTerms = new Set<string>();
     let kept: Listing[] = [];
 
     // Fetch page by page across every term until we have enough or hit the cap.
-    while (page < MAX_PAGES) {
+    // pagesFetched counts the number of rounds completed, not individual requests.
+    for (let round = 0; round < MAX_PAGES; round++) {
+      const allTermsExhausted = terms.every((t) => termStates.get(t)?.exhausted);
+      if (allTermsExhausted) break;
+
+      newAds.length = 0;
+
       for (const term of terms) {
+        const state = termStates.get(term)!;
+        if (state.exhausted) continue;
+
         let data: SearchPayload;
         try {
           data = await deps.transport.gql<SearchPayload>({
@@ -130,28 +147,44 @@ export function createSearch(deps: { transport: Transport; rates: RatesProvider 
               input: {
                 source: "AD_SOURCE_DESKTOP_REDESIGN",
                 sort: SORT_MAP[p.sort],
-                pagination: { limit: PAGE_SIZE, skip: p.offset + page * PAGE_SIZE },
+                pagination: { limit: PAGE_SIZE, skip: p.offset + state.page * PAGE_SIZE },
                 filters: priceFilter(p.maxPrice),
                 query: term,
               },
             },
           });
         } catch (err) {
-          warnings.push(`Query "${term}" failed: ${String(err)}`);
+          if (!warnedTerms.has(term)) {
+            warnings.push(`Query "${term}" failed: ${String(err)}`);
+            warnedTerms.add(term);
+          }
+          state.exhausted = true;
           continue;
         }
         serverTotal = Math.max(serverTotal, data.searchAds?.count ?? 0);
-        for (const ad of data.searchAds?.ads ?? []) {
-          if (ad?.id != null && !seen.has(String(ad.id))) seen.set(String(ad.id), ad);
-        }
-      }
-      page++;
-      diagnostics.pagesFetched = page;
 
-      kept = applyFilters([...seen.values()], p, rates, diagnostics);
+        const ads = data.searchAds?.ads ?? [];
+        for (const ad of ads) {
+          if (ad?.id != null && !seen.has(String(ad.id))) {
+            seen.set(String(ad.id), ad);
+            newAds.push(ad);
+          }
+        }
+
+        // A term is exhausted when the server returns fewer than PAGE_SIZE ads
+        if (ads.length < PAGE_SIZE) {
+          state.exhausted = true;
+        }
+        state.page++;
+      }
+
+      diagnostics.pagesFetched = round + 1;
+
+      // Filter only newly-fetched ads and add them to kept
+      const newKept = applyFilters(newAds, p, rates, diagnostics, true);
+      kept.push(...newKept);
+
       if (kept.length >= p.limit) break;
-      // No more data available upstream, so more pages will not help.
-      if (seen.size < PAGE_SIZE * page) break;
     }
 
     diagnostics.fetched = seen.size;
@@ -164,6 +197,7 @@ export function createSearch(deps: { transport: Transport; rates: RatesProvider 
 
     const listings = kept.slice(0, p.limit).map((l) => truncateDescription(l));
     diagnostics.returned = listings.length;
+    diagnostics.matched = kept.length;
 
     return {
       listings,
@@ -178,13 +212,16 @@ function applyFilters(
   ads: RawAd[],
   p: z.output<typeof searchParamsSchema>,
   rates: { MDL: number; EUR: number; USD: number },
-  d: ReturnType<typeof emptyDiagnostics>
+  d: ReturnType<typeof emptyDiagnostics>,
+  isIncremental: boolean = false
 ): Listing[] {
-  d.droppedNoPrice = 0;
-  d.droppedIntent = 0;
-  d.droppedRegion = 0;
-  d.droppedPrice = 0;
-  d.droppedMalformed = 0;
+  if (!isIncremental) {
+    d.droppedNoPrice = 0;
+    d.droppedIntent = 0;
+    d.droppedRegion = 0;
+    d.droppedPrice = 0;
+    d.droppedMalformed = 0;
+  }
 
   const out: Listing[] = [];
   for (const ad of ads) {

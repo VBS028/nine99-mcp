@@ -97,11 +97,39 @@ describe("search_999", () => {
   });
 
   it("stops fetching pages at the cap", async () => {
-    // Every page is all-services, so the filter never fills `limit`.
-    const page = adsPayload(Array.from({ length: 78 }, (_, i) => mkAd(String(i), "Reparația tv", 300)), 1000);
-    const gql = vi.fn().mockResolvedValue(page);
+    // Make the mock skip-aware: return distinct ads for each skip value so exhaustion
+    // is not detected. All ads are services, so they all get filtered out.
+    let callCount = 0;
+    const gql = vi.fn().mockImplementation(() => {
+      const pageNum = callCount++;
+      const ads = Array.from({ length: 78 }, (_, i) => {
+        const id = String(pageNum * 78 + i);
+        return mkAd(id, "Reparația tv", 300);
+      });
+      return Promise.resolve(adsPayload(ads, 1000));
+    });
     const res = await createSearch({ transport: { gql }, rates })({ query: "tv", limit: 20 });
-    expect(res.diagnostics.pagesFetched).toBeLessThanOrEqual(5);
-    expect(gql.mock.calls.length).toBeLessThanOrEqual(5);
+    // Should hit exactly MAX_PAGES (5) because all ads are services and filtered out
+    expect(res.diagnostics.pagesFetched).toBe(5);
+    expect(gql.mock.calls.length).toBe(5);
+  });
+
+  it("tracks matched count before limit slice", async () => {
+    // Return more ads than limit so we can verify matched > returned
+    const ads = Array.from({ length: 30 }, (_, i) => mkAd(String(i), "Vând tv", 500));
+    const transport: Transport = { gql: vi.fn().mockResolvedValue(adsPayload(ads)) };
+    const res = await createSearch({ transport, rates })({ query: "tv", limit: 20 });
+    expect(res.diagnostics.fetched).toBe(30);
+    expect(res.diagnostics.matched).toBe(30);
+    expect(res.count.returned).toBe(20);
+    expect(res.diagnostics.returned).toBe(20);
+    // Verify invariant: fetched = matched + all drops
+    const totalDropped =
+      res.diagnostics.droppedNoPrice +
+      res.diagnostics.droppedIntent +
+      res.diagnostics.droppedRegion +
+      res.diagnostics.droppedPrice +
+      res.diagnostics.droppedMalformed;
+    expect(res.diagnostics.fetched).toBe(res.diagnostics.matched + totalDropped);
   });
 });

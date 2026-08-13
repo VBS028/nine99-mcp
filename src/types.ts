@@ -28,6 +28,7 @@ export interface Listing {
 
 export interface Diagnostics {
   fetched: number;
+  matched: number;
   droppedNoPrice: number;
   droppedIntent: number;
   droppedRegion: number;
@@ -72,6 +73,7 @@ export interface Rates {
 export function emptyDiagnostics(): Diagnostics {
   return {
     fetched: 0,
+    matched: 0,
     droppedNoPrice: 0,
     droppedIntent: 0,
     droppedRegion: 0,
