@@ -71,7 +71,7 @@ export function createTransport(opts: TransportOptions = {}): Transport {
         signal: ac.signal,
       });
 
-      if (res.status === 429) throw new GqlError("999.md rate-limited the request (HTTP 429)", "RATE_LIMITED");
+      if (res.status === 429) throw new Error("HTTP 429");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const json = (await res.json()) as { data?: T; errors?: Array<{ message: string; extensions?: { code?: string } }> };
@@ -96,6 +96,10 @@ export function createTransport(opts: TransportOptions = {}): Transport {
         lastErr = err;
         if (attempt < maxRetries) await sleep(backoffMs * (attempt + 1));
       }
+    }
+    // If the last error was a rate-limit, surface it as GqlError so callers can distinguish it.
+    if (lastErr instanceof Error && lastErr.message === "HTTP 429") {
+      throw new GqlError("999.md rate-limited the request (HTTP 429)", "RATE_LIMITED");
     }
     throw new Error(
       `999.md request "${req.operationName}" failed after ${maxRetries + 1} attempts: ${String(lastErr)}`

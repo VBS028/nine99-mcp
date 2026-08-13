@@ -61,4 +61,24 @@ describe("transport", () => {
     expect(times[1] - times[0]).toBeGreaterThanOrEqual(45);
     expect(times[2] - times[1]).toBeGreaterThanOrEqual(45);
   });
+
+  it("retries on 429 and succeeds", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockImplementationOnce(async () => new Response(null, { status: 429 }))
+      .mockImplementationOnce(async () => jsonResponse({ data: { x: 3 } }));
+    const t = createTransport({ fetchImpl, minIntervalMs: 0, backoffMs: 0 });
+    expect(await t.gql(req)).toEqual({ x: 3 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("exhausts retries on persistent 429 and throws GqlError", async () => {
+    const fetchImpl = vi.fn().mockImplementation(async () => new Response(null, { status: 429 }));
+    const t = createTransport({ fetchImpl, minIntervalMs: 0, backoffMs: 0 });
+    const error = await t.gql(req).catch((e) => e);
+    expect(error).toBeInstanceOf(GqlError);
+    expect(error.message).toMatch(/rate-limited/);
+    expect(error.code).toBe("RATE_LIMITED");
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
 });
