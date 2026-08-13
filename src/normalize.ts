@@ -47,21 +47,46 @@ export function normalizeAd(ad: RawAd, rates: Rates, lang?: Lang): Listing {
   let source: Listing["price"]["source"] = listed ? "listed" : "none";
 
   const inText = pricesInText(`${title} ${description}`, rates);
+  const distinctPrices = [...new Set(inText)];
+  const hasMultiplePrices = distinctPrices.length > 2;
 
-  if (mdl !== null && mdl < PLACEHOLDER_MAX && inText.length) {
-    // Placeholder price: the description holds the real figure.
-    mdl = Math.min(...inText);
-    source = "description";
+  if (mdl !== null && mdl < PLACEHOLDER_MAX) {
+    // Placeholder price
+    if (!inText.length) {
+      // Placeholder with no recoverable text (Finding 1)
+      warnings.push(`Listed price is a placeholder (${mdl} MDL) with no recoverable price in the description.`);
+      mdl = null;
+      source = "none";
+    } else if (hasMultiplePrices) {
+      // Placeholder with ambiguous text (Finding 2)
+      warnings.push(`Listed price is a placeholder (${mdl} MDL).`);
+      warnings.push(`Description contains multiple prices: ${distinctPrices.join(", ")} MDL. Cannot determine listing price.`);
+      mdl = null;
+      source = "none";
+    } else {
+      // Placeholder with clear recovery (1-2 prices)
+      mdl = Math.min(...inText);
+      source = "description";
+    }
   } else if (mdl === null && inText.length) {
-    mdl = Math.min(...inText);
-    source = "description";
+    // No listed price but description has prices
+    if (hasMultiplePrices) {
+      warnings.push(`Description contains multiple prices: ${distinctPrices.join(", ")} MDL. Cannot determine listing price.`);
+    } else {
+      mdl = Math.min(...inText);
+      source = "description";
+    }
   } else if (mdl !== null && source === "listed" && inText.length) {
-    // Both exist: disagreement is worth surfacing, not silently resolving.
-    const agrees = inText.some((v) => Math.abs(v - mdl!) / mdl! < 0.05);
-    if (!agrees) {
-      warnings.push(
-        `Listed price is ${mdl} MDL but the description mentions ${[...new Set(inText)].join(", ")} MDL. Confirm with the seller.`
-      );
+    // Listed price with description prices
+    if (hasMultiplePrices) {
+      warnings.push(`Listed price is ${mdl} MDL, but the description contains multiple prices: ${distinctPrices.join(", ")} MDL. Confirm with the seller.`);
+    } else {
+      const agrees = inText.some((v) => Math.abs(v - mdl!) / mdl! < 0.05);
+      if (!agrees) {
+        warnings.push(
+          `Listed price is ${mdl} MDL but the description mentions ${[...new Set(inText)].join(", ")} MDL. Confirm with the seller.`
+        );
+      }
     }
   }
 

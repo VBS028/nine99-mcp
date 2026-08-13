@@ -90,6 +90,46 @@ describe("normalizeAd", () => {
     expect(l.region).toBe("Chișinău mun.");
     expect(l.phones).toEqual(["37366660304"]);
   });
+
+  it("nulls a placeholder price with no recoverable text in the description", () => {
+    const l = normalizeAd(
+      ad({
+        price: { value: { value: 50, unit: "UNIT_MDL", bargain: false } },
+        body: { value: { translated: "Good condition, no price mentioned" } },
+      }),
+      rates
+    );
+    expect(l.price.mdl).toBeNull();
+    expect(l.price.source).toBe("none");
+    expect(l.priceWarnings.length).toBeGreaterThan(0);
+  });
+
+  it("keeps listed price when it agrees with description", () => {
+    const l = normalizeAd(
+      ad({
+        price: { value: { value: 1600, unit: "UNIT_MDL", bargain: false } },
+        body: { value: { translated: "Preț 1600 lei" } },
+      }),
+      rates
+    );
+    expect(l.price.mdl).toBe(1600);
+    expect(l.price.source).toBe("listed");
+    expect(l.priceWarnings).toEqual([]);
+  });
+
+  it("warns when description has multiple candidate prices", () => {
+    const l = normalizeAd(
+      ad({
+        price: { value: { value: 1000, unit: "UNIT_MDL", bargain: false } },
+        body: { value: { translated: "Preț: 400 lei sau 800 lei sau 1200 lei" } },
+      }),
+      rates
+    );
+    expect(l.price.mdl).toBe(1000);
+    expect(l.price.source).toBe("listed");
+    expect(l.priceWarnings.length).toBeGreaterThan(0);
+    expect(l.priceWarnings.join(" ")).toMatch(/multiple prices/i);
+  });
 });
 
 describe("truncateDescription", () => {
