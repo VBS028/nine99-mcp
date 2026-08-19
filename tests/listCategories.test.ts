@@ -31,4 +31,35 @@ describe("list_categories_999", () => {
     const transport: Transport = { gql: vi.fn().mockRejectedValue(new Error("UNAUTHENTICATED")) };
     await expect(createListCategories({ transport })()).resolves.toEqual([]);
   });
+
+  it("uses operationName that matches the query document", async () => {
+    const gqlMock = vi.fn().mockResolvedValue({
+      categoriesWithCounters: { categoriesWithCounters: [] },
+    });
+    const transport: Transport = { gql: gqlMock };
+    await createListCategories({ transport })();
+    const call = gqlMock.mock.calls[0][0];
+    expect(call.operationName).toBeDefined();
+    // Match the actual operation declaration, not just a substring.
+    // This catches if operationName is a prefix of the real name.
+    const opRe = new RegExp(`\\b(query|mutation)\\s+${call.operationName}\\s*[({]`);
+    expect(call.query).toMatch(opRe);
+  });
+
+  it("logs to stderr when the request fails", async () => {
+    const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const transport: Transport = { gql: vi.fn().mockRejectedValue(new Error("Network timeout")) };
+      const result = await createListCategories({ transport })();
+      expect(result).toEqual([]);
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[list_categories_999]")
+      );
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Network timeout")
+      );
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
 });

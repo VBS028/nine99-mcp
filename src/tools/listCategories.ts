@@ -7,7 +7,7 @@ export interface CategoryNode {
 }
 
 export const LIST_CATEGORIES_TOOL_DESCRIPTION =
-  "List 999.md categories. Best-effort: returns an empty array if the category endpoint is unavailable anonymously.";
+  "List 999.md categories. Best-effort: returns an empty array if the request fails for any reason.";
 
 /**
  * Shape confirmed by Task 2's spike. Three things differ from the obvious guess:
@@ -52,8 +52,12 @@ export function createListCategories(deps: { transport: Transport }) {
         variables: { input: {} },
       });
       return (data?.categoriesWithCounters?.categoriesWithCounters ?? []).map(toNode);
-    } catch {
+    } catch (err) {
       // Documented as best-effort; an unavailable category tree must not break the server.
+      // Log to stderr (not stdout) so stdio protocol is not polluted.
+      console.error(
+        `[list_categories_999] Request failed, returning empty array. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
       return [];
     }
   };
