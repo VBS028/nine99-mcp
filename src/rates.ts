@@ -41,7 +41,10 @@ export function createRates(transport: Transport): RatesProvider {
 
           for (const row of rows) {
             const toMdl = row.ratios?.find((r) => r.key === "RATES_MAIN_CURRENCY_MDL")?.value;
-            if (!Number.isFinite(toMdl)) continue;
+            // A non-positive rate (including a live 0) is treated as missing so it
+            // takes the fallback-with-warning path below, rather than computing
+            // every foreign-currency price as 0.
+            if (typeof toMdl !== "number" || !Number.isFinite(toMdl) || toMdl <= 0) continue;
             if (row.key === "RATES_MAIN_CURRENCY_EUR") eur = toMdl as number;
             if (row.key === "RATES_MAIN_CURRENCY_USD") usd = toMdl as number;
           }

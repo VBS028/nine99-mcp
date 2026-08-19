@@ -27,6 +27,26 @@ describe("get_listing_999", () => {
     expect(l.descriptionTruncated).toBe(false);
   });
 
+  it("surfaces rate warnings into priceWarnings (search_999 does this too; get_listing_999 must not drop it)", async () => {
+    const staleRates = {
+      get: async () => ({
+        rates: FALLBACK_RATES,
+        warnings: ["Could not fetch live currency rates (boom); using hardcoded fallback from 2026-08-13. Non-MDL prices may be inaccurate."],
+      }),
+    };
+    const transport: Transport = {
+      gql: vi.fn().mockResolvedValue({
+        advert: {
+          id: "104254352",
+          title: "Xiaomi TV A 32",
+          price: { value: { value: 2700, unit: "UNIT_MDL", bargain: false } },
+        },
+      }),
+    };
+    const l = await createGetListing({ transport, rates: staleRates })({ id: "104254352" });
+    expect(l.priceWarnings.join(" ")).toMatch(/fallback/i);
+  });
+
   it("throws a clear error when the listing is gone", async () => {
     const transport: Transport = { gql: vi.fn().mockResolvedValue({ advert: null }) };
     await expect(createGetListing({ transport, rates })({ id: "1" })).rejects.toThrow(/not found|removed/i);

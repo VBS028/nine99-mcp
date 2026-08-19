@@ -31,7 +31,7 @@ const GQL = `query AdDetailLookup999($input: AdvertInput!) {
 export function createGetListing(deps: { transport: Transport; rates: RatesProvider }) {
   return async function getListing(raw: z.input<typeof getListingParamsSchema>): Promise<Listing> {
     const p = getListingParamsSchema.parse(raw);
-    const { rates } = await deps.rates.get();
+    const { rates, warnings: rateWarnings } = await deps.rates.get();
 
     const data = await deps.transport.gql<{ advert?: RawAd | null }>({
       operationName: "AdDetailLookup999",
@@ -44,6 +44,9 @@ export function createGetListing(deps: { transport: Transport; rates: RatesProvi
 
     const listing = normalizeAd(ad, rates, p.lang);
     listing.intent = classifyIntent(listing.title, listing.description);
+    // Surface a currency-rates outage here too, same as search_999 — otherwise
+    // a stale-converted MDL figure ships with no indication anywhere.
+    listing.priceWarnings = [...rateWarnings, ...listing.priceWarnings];
     return listing; // deliberately not truncated
   };
 }

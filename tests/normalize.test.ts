@@ -132,6 +132,41 @@ describe("normalizeAd", () => {
   });
 });
 
+describe("price mode", () => {
+  it("warns and includes the value when the price mode is PM_FROM (a starting price), but keeps source listed", () => {
+    const l = normalizeAd(
+      ad({ price: { value: { value: 350, unit: "UNIT_MDL", bargain: false, mode: "PM_FROM" } } }),
+      rates
+    );
+    expect(l.price.mdl).toBe(350);
+    expect(l.price.source).toBe("listed");
+    expect(l.priceWarnings.join(" ")).toMatch(/from|starting/i);
+    expect(l.priceWarnings.join(" ")).toMatch(/350/);
+  });
+
+  it("does not warn about mode for a PM_FIXED price", () => {
+    const l = normalizeAd(
+      ad({ price: { value: { value: 1000, unit: "UNIT_MDL", bargain: false, mode: "PM_FIXED" } } }),
+      rates
+    );
+    expect(l.priceWarnings).toEqual([]);
+  });
+});
+
+describe("unrecognised price unit", () => {
+  it("warns and does not claim original.currency === 'MDL' for an unrecognised unit", () => {
+    const l = normalizeAd(
+      ad({ price: { value: { value: 500, unit: "UNIT_RON", bargain: false } } }),
+      rates
+    );
+    // Still converts as MDL so the number stays usable for filtering...
+    expect(l.price.mdl).toBe(500);
+    // ...but must not assert a currency the API never sent.
+    expect(l.price.original?.currency).not.toBe("MDL");
+    expect(l.priceWarnings.join(" ")).toMatch(/UNIT_RON/);
+  });
+});
+
 describe("truncateDescription", () => {
   it("trims and flags long descriptions", () => {
     const l = normalizeAd(ad({ body: { value: { translated: "x".repeat(400) } } }), rates);

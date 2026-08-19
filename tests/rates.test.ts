@@ -71,6 +71,23 @@ describe("rates", () => {
     expect(warnings.length).toBeGreaterThan(0);
   });
 
+  it("treats a non-positive live rate (0) as missing, falling back with a warning", async () => {
+    const zeroPayload = {
+      getMainCurrenciesRates: {
+        mainCurrenciesRates: [
+          { key: "RATES_MAIN_CURRENCY_EUR", ratios: [{ key: "RATES_MAIN_CURRENCY_MDL", value: 0 }] },
+          { key: "RATES_MAIN_CURRENCY_USD", ratios: [{ key: "RATES_MAIN_CURRENCY_MDL", value: 17.3383 }] },
+        ],
+      },
+    };
+    const t: Transport = { gql: vi.fn().mockResolvedValue(zeroPayload) };
+    const { rates, warnings } = await createRates(t).get();
+    expect(rates.EUR).toBe(FALLBACK_RATES.EUR);
+    expect(rates.USD).toBeCloseTo(17.3383, 3);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.join(" ")).toMatch(/EUR/i);
+  });
+
   it("handles concurrent get() calls with single request", async () => {
     const gql = vi.fn().mockResolvedValue(livePayload);
     const provider = createRates({ gql });

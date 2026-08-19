@@ -42,12 +42,12 @@ describe("featureText", () => {
 describe("decodePrice", () => {
   it("decodes an MDL price", () => {
     const f = { value: { value: 2800, unit: "UNIT_MDL", bargain: false } };
-    expect(decodePrice(f)).toEqual({ value: 2800, currency: "MDL", negotiable: false });
+    expect(decodePrice(f)).toEqual({ value: 2800, currency: "MDL", negotiable: false, mode: null, rawUnit: "UNIT_MDL" });
   });
 
   it("decodes a EUR price without converting", () => {
     const f = { value: { value: 120, unit: "UNIT_EUR", bargain: true } };
-    expect(decodePrice(f)).toEqual({ value: 120, currency: "EUR", negotiable: true });
+    expect(decodePrice(f)).toEqual({ value: 120, currency: "EUR", negotiable: true, mode: null, rawUnit: "UNIT_EUR" });
   });
 
   it("decodes a USD price", () => {
@@ -57,6 +57,21 @@ describe("decodePrice", () => {
   it("returns null for a missing or zero price", () => {
     expect(decodePrice(null)).toBeNull();
     expect(decodePrice({ value: { value: 0, unit: "UNIT_MDL" } })).toBeNull();
+  });
+
+  it("carries the mode field through, defaulting to null when absent", () => {
+    const f = { value: { value: 350, unit: "UNIT_MDL", bargain: false, mode: "PM_FROM" } };
+    expect(decodePrice(f)?.mode).toBe("PM_FROM");
+    expect(decodePrice({ value: { value: 350, unit: "UNIT_MDL", bargain: false, mode: "PM_FIXED" } })?.mode).toBe("PM_FIXED");
+    expect(decodePrice({ value: { value: 350, unit: "UNIT_MDL", bargain: false } })?.mode).toBeNull();
+  });
+
+  it("returns a null currency (not a silent MDL guess) for an unrecognised unit", () => {
+    const f = { value: { value: 500, unit: "UNIT_RON", bargain: false } };
+    const d = decodePrice(f);
+    expect(d?.currency).toBeNull();
+    expect(d?.rawUnit).toBe("UNIT_RON");
+    expect(d?.value).toBe(500);
   });
 });
 

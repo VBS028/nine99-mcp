@@ -43,8 +43,28 @@ export function normalizeAd(ad: RawAd, rates: Rates, lang?: Lang): Listing {
   const listed = decodePrice(ad.price);
   const warnings: string[] = [];
 
-  let mdl: number | null = listed ? Math.round(listed.value * rates[listed.currency]) : null;
+  // An unrecognised unit still converts as MDL (better a usable number than
+  // none), but must not be presented as if it truly were MDL — see below.
+  let mdl: number | null = listed ? Math.round(listed.value * rates[listed.currency ?? "MDL"]) : null;
   let source: Listing["price"]["source"] = listed ? "listed" : "none";
+
+  if (listed && listed.currency === null) {
+    warnings.push(
+      `Listed price unit "${listed.rawUnit}" is not a recognized currency; treating ${listed.value} as MDL, which may be significantly inaccurate.`
+    );
+  }
+
+  if (listed?.mode === "PM_FROM") {
+    warnings.push(
+      `Listed price of ${listed.value} ${listed.currency ?? listed.rawUnit} is a starting ("from") price, not a fixed price — the actual price may be higher.`
+    );
+  } else if (listed?.mode && listed.mode !== "PM_FIXED") {
+    // Defensive: the mode set observed in the fixture corpus is {PM_FIXED, PM_FROM},
+    // but do not silently treat an unrecognized mode as a definite fixed price.
+    warnings.push(
+      `Listed price has an unrecognized mode "${listed.mode}"; it may not be a fixed price.`
+    );
+  }
 
   const inText = pricesInText(`${title} ${description}`, rates);
   const distinctPrices = [...new Set(inText)];
@@ -96,7 +116,7 @@ export function normalizeAd(ad: RawAd, rates: Rates, lang?: Lang): Listing {
     url: `https://999.md/ro/${ad.id}`,
     price: {
       mdl,
-      original: listed ? { value: listed.value, currency: listed.currency } : null,
+      original: listed && listed.currency ? { value: listed.value, currency: listed.currency } : null,
       negotiable: listed?.negotiable ?? false,
       source,
     },

@@ -66,15 +66,22 @@ export function featureText(f: RawFeature | null | undefined, lang?: Lang): stri
 
 export function decodePrice(
   f: RawFeature | null | undefined
-): { value: number; currency: Currency; negotiable: boolean } | null {
+): { value: number; currency: Currency | null; negotiable: boolean; mode: string | null; rawUnit: string } | null {
   const v = f?.value;
   if (!isObj(v)) return null;
   const n = Number(v.value);
   if (!Number.isFinite(n) || n <= 0) return null;
+  const rawUnit = String(v.unit);
   return {
     value: n,
-    currency: UNIT_TO_CURRENCY[String(v.unit)] ?? "MDL",
+    // null (not a silent "MDL" fallback) when the unit isn't one we recognize —
+    // callers must decide how to handle that honestly rather than have us guess.
+    currency: UNIT_TO_CURRENCY[rawUnit] ?? null,
     negotiable: Boolean(v.bargain),
+    // "PM_FIXED" | "PM_FROM" observed in the fixture corpus; other values are
+    // possible and are passed through as-is for the caller to handle defensively.
+    mode: typeof v.mode === "string" ? v.mode : null,
+    rawUnit,
   };
 }
 
