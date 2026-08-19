@@ -1,4 +1,24 @@
 #!/usr/bin/env node
+/**
+ * Preflight: this server needs global `fetch`, which arrived in Node 18.
+ * Without this guard an older runtime dies inside transport.ts with a bare
+ * `ReferenceError: fetch is not defined`, which reaches an MCP client as an
+ * opaque CONNECTION_CLOSED that says nothing about the real cause.
+ * Fail loudly and actionably instead.
+ */
+if (typeof fetch !== "function") {
+  process.stderr.write(
+    [
+      "nine99-mcp requires Node 18 or newer (global fetch is missing).",
+      `Running Node ${process.versions.node} from ${process.execPath}`,
+      'Fix: register this server with an absolute path to a Node 18+ binary',
+      'instead of bare "node", so switching the global nvm version cannot break it.',
+      "",
+    ].join("\n")
+  );
+  process.exit(1);
+}
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
