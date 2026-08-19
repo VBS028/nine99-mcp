@@ -42,6 +42,9 @@ describe("get_listing_999", () => {
     }
     const call = gqlMock.mock.calls[0][0];
     expect(call.operationName).toBeDefined();
-    expect(call.query).toContain(`query ${call.operationName}`);
+    // Match the actual operation declaration, not just a substring.
+    // This catches if operationName is a prefix of the real name.
+    const opRe = new RegExp(`\\b(query|mutation)\\s+${call.operationName}\\s*[({]`);
+    expect(call.query).toMatch(opRe);
   });
 });

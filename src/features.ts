@@ -104,11 +104,12 @@ export function decodeImages(f: RawFeature | null | undefined): string[] {
     filenames = (v.images as unknown[]).filter((x): x is string => typeof x === "string");
   }
 
-  // Convert filenames to full URLs, or pass through if already absolute
+  // Convert filenames to full URLs, or pass through if already absolute.
+  // Filenames from the API already include the extension.
   return filenames.map((filename) => {
     if (filename.startsWith("http://") || filename.startsWith("https://")) {
       return filename;
     }
-    return `${IMAGE_CDN_BASE}/${filename}.jpg`;
+    return `${IMAGE_CDN_BASE}/${filename}`;
   });
 }

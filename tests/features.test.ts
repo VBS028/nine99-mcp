@@ -85,13 +85,19 @@ describe("decodeRegion / decodeCondition", () => {
 });
 
 describe("decodeImages", () => {
-  it("converts bare filenames to full CDN URLs", () => {
-    const f = { value: ["0c1359d5286a5a4029bf27ab6bce2fff", "ee388f60994516dbd16fdbe46bb4c0d2"] };
+  it("converts real filenames (which already include .jpg) to full CDN URLs", () => {
+    // Real API filenames already end in .jpg per live API verification
+    const f = { value: ["0c1359d5286a5a4029bf27ab6bce2fff.jpg", "ee388f60994516dbd16fdbe46bb4c0d2.jpg"] };
     const urls = decodeImages(f);
     expect(urls).toEqual([
       `${IMAGE_CDN_BASE}/0c1359d5286a5a4029bf27ab6bce2fff.jpg`,
       `${IMAGE_CDN_BASE}/ee388f60994516dbd16fdbe46bb4c0d2.jpg`,
     ]);
+    // Verify no doubled extensions (exactly one .jpg per URL)
+    urls.forEach((url) => {
+      expect(url).toMatch(/\.jpg$/);
+      expect((url.match(/\.jpg/g) || []).length).toBe(1);
+    });
   });
 
   it("passes through already-absolute URLs unchanged (idempotent)", () => {
@@ -99,6 +105,8 @@ describe("decodeImages", () => {
     const f = { value: [absoluteUrl] };
     const urls = decodeImages(f);
     expect(urls).toEqual([absoluteUrl]);
+    // Verify no doubled extensions
+    expect((absoluteUrl.match(/\.jpg/g) || []).length).toBe(1);
   });
 
   it("handles empty/missing values", () => {
@@ -108,12 +116,17 @@ describe("decodeImages", () => {
     expect(decodeImages({ value: null })).toEqual([]);
   });
 
-  it("extracts images from the { images: [...] } wrapper shape", () => {
-    const f = { value: { images: ["abc123", "def456"] } };
+  it("extracts images from the { images: [...] } wrapper shape with realistic filenames", () => {
+    // Real wrapper format with .jpg extensions
+    const f = { value: { images: ["abc123def456g7h8i9j0k1l2m3n4o5p6.jpg", "xyz789abc123def456g7h8i9j0k1l2m3.jpg"] } };
     const urls = decodeImages(f);
     expect(urls).toEqual([
-      `${IMAGE_CDN_BASE}/abc123.jpg`,
-      `${IMAGE_CDN_BASE}/def456.jpg`,
+      `${IMAGE_CDN_BASE}/abc123def456g7h8i9j0k1l2m3n4o5p6.jpg`,
+      `${IMAGE_CDN_BASE}/xyz789abc123def456g7h8i9j0k1l2m3.jpg`,
     ]);
+    // Verify no doubled extensions
+    urls.forEach((url) => {
+      expect((url.match(/\.jpg/g) || []).length).toBe(1);
+    });
   });
 });
