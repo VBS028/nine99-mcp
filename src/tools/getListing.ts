@@ -34,7 +34,7 @@ export function createGetListing(deps: { transport: Transport; rates: RatesProvi
     const { rates } = await deps.rates.get();
 
     const data = await deps.transport.gql<{ advert?: RawAd | null }>({
-      operationName: "AdDetail",
+      operationName: "AdDetailLookup999",
       query: GQL,
       variables: { input: { id: p.id } },
     });

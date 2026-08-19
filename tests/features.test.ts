@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { featureText, decodePrice, decodePhones, decodeRegion, decodeCondition } from "../src/features.js";
+import { featureText, decodePrice, decodePhones, decodeRegion, decodeCondition, decodeImages, IMAGE_CDN_BASE } from "../src/features.js";
 
 // NOTE: the real shape is FLAT — { ro, ru, translated }. There is no `i18n`
 // wrapper. Confirmed by Task 2's spike across 234 real ads: 100% flat, 0% nested.
@@ -81,5 +81,39 @@ describe("decodeRegion / decodeCondition", () => {
   it("returns null when absent", () => {
     expect(decodeRegion(null)).toBeNull();
     expect(decodeCondition(undefined)).toBeNull();
+  });
+});
+
+describe("decodeImages", () => {
+  it("converts bare filenames to full CDN URLs", () => {
+    const f = { value: ["0c1359d5286a5a4029bf27ab6bce2fff", "ee388f60994516dbd16fdbe46bb4c0d2"] };
+    const urls = decodeImages(f);
+    expect(urls).toEqual([
+      `${IMAGE_CDN_BASE}/0c1359d5286a5a4029bf27ab6bce2fff.jpg`,
+      `${IMAGE_CDN_BASE}/ee388f60994516dbd16fdbe46bb4c0d2.jpg`,
+    ]);
+  });
+
+  it("passes through already-absolute URLs unchanged (idempotent)", () => {
+    const absoluteUrl = "https://example.com/image.jpg";
+    const f = { value: [absoluteUrl] };
+    const urls = decodeImages(f);
+    expect(urls).toEqual([absoluteUrl]);
+  });
+
+  it("handles empty/missing values", () => {
+    expect(decodeImages(null)).toEqual([]);
+    expect(decodeImages(undefined)).toEqual([]);
+    expect(decodeImages({ value: [] })).toEqual([]);
+    expect(decodeImages({ value: null })).toEqual([]);
+  });
+
+  it("extracts images from the { images: [...] } wrapper shape", () => {
+    const f = { value: { images: ["abc123", "def456"] } };
+    const urls = decodeImages(f);
+    expect(urls).toEqual([
+      `${IMAGE_CDN_BASE}/abc123.jpg`,
+      `${IMAGE_CDN_BASE}/def456.jpg`,
+    ]);
   });
 });

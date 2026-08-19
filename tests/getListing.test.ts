@@ -31,4 +31,17 @@ describe("get_listing_999", () => {
     const transport: Transport = { gql: vi.fn().mockResolvedValue({ advert: null }) };
     await expect(createGetListing({ transport, rates })({ id: "1" })).rejects.toThrow(/not found|removed/i);
   });
+
+  it("uses operationName that matches the query document", async () => {
+    const gqlMock = vi.fn().mockResolvedValue({ advert: null });
+    const transport: Transport = { gql: gqlMock };
+    try {
+      await createGetListing({ transport, rates })({ id: "1" });
+    } catch {
+      // Expected to fail, we just want to inspect the call
+    }
+    const call = gqlMock.mock.calls[0][0];
+    expect(call.operationName).toBeDefined();
+    expect(call.query).toContain(`query ${call.operationName}`);
+  });
 });

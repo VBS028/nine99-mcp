@@ -9,6 +9,8 @@ export const FEATURE = {
   CONDITION: 593,
 } as const;
 
+export const IMAGE_CDN_BASE = "https://i.simpalsmedia.com/999.md/BoardImages/900x900";
+
 const UNIT_TO_CURRENCY: Record<string, Currency> = {
   UNIT_MDL: "MDL",
   UNIT_EUR: "EUR",
@@ -95,9 +97,18 @@ export const decodeCondition = translated;
 
 export function decodeImages(f: RawFeature | null | undefined): string[] {
   const v = f?.value;
-  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
-  if (isObj(v) && Array.isArray(v.images)) {
-    return (v.images as unknown[]).filter((x): x is string => typeof x === "string");
+  let filenames: string[] = [];
+  if (Array.isArray(v)) {
+    filenames = v.filter((x): x is string => typeof x === "string");
+  } else if (isObj(v) && Array.isArray(v.images)) {
+    filenames = (v.images as unknown[]).filter((x): x is string => typeof x === "string");
   }
-  return [];
+
+  // Convert filenames to full URLs, or pass through if already absolute
+  return filenames.map((filename) => {
+    if (filename.startsWith("http://") || filename.startsWith("https://")) {
+      return filename;
+    }
+    return `${IMAGE_CDN_BASE}/${filename}.jpg`;
+  });
 }
