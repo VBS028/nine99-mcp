@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "nine99-mcp": "dist/server.js" },
+  "bin": {
+    "nine99-mcp": "dist/src/server.js"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -13,7 +15,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
