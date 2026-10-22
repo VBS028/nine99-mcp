@@ -188,3 +188,7 @@ docs/superpowers/      Design spec and implementation plan
 ## Contributing
 
 Issues and pull requests are welcome. If 999.md changes its API and something breaks, run `npx tsx scripts/verify-e2e.ts` to see which part fails, and include its output in the issue.
+
+## License
+
+[MIT](LICENSE)
